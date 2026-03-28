@@ -6,24 +6,18 @@ from dotenv import load_dotenv
 import hmac
 import hashlib
 from openai import OpenAI
-
 # Load environment variables from .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
-
 print("OPENAI_API_KEY loaded:", bool(OPENAI_API_KEY))
 print("GITHUB_TOKEN loaded:", bool(GITHUB_TOKEN))
-
 app = FastAPI()
-
 # Initialize OpenAI client
 client = None
 if OPENAI_API_KEY:
     client = OpenAI(api_key=OPENAI_API_KEY)
-
-
 # Verify GitHub webhook signature (optional, skip if no secret)
 def verify_signature(payload_body, signature_header):
     if not WEBHOOK_SECRET:
@@ -36,8 +30,6 @@ def verify_signature(payload_body, signature_header):
         return hmac.compare_digest(mac.hexdigest(), signature)
     except Exception:
         return False
-
-
 # AI review function using new OpenAI API
 def run_ai_review(diff: str) -> str:
     if not client:
@@ -46,15 +38,12 @@ def run_ai_review(diff: str) -> str:
     try:
         prompt = f"""
 You are a senior software engineer performing a code review.
-
 Analyze this diff for:
 - Security vulnerabilities
 - Performance issues
 - Scalability problems
 - Code readability and style
-
 Provide actionable suggestions as bullet points.
-
 Diff:
 {diff}
 """
@@ -70,8 +59,6 @@ Diff:
     except Exception as e:
         print("❌ Error in run_ai_review:", e)
         return f"⚠️ AI review failed: {e}"
-
-
 # Post comment to GitHub PR
 def post_comment(repo: str, pr_number: int, review: str):
     if not GITHUB_TOKEN:
@@ -89,34 +76,26 @@ def post_comment(repo: str, pr_number: int, review: str):
     except Exception as e:
         print("❌ Error posting GitHub comment:", e)
 
-
 @app.post("/webhook")
 async def webhook(request: Request, x_hub_signature_256: str = Header(None)):
     try:
         payload_body = await request.body()
-
         # Verify signature
         if not verify_signature(payload_body, x_hub_signature_256):
             return {"status": "ignored", "reason": "invalid signature"}
-
         payload = await request.json()
         action = payload.get("action")
         print("Webhook action:", action)
-
         # Only handle PR opened or updated
         if action not in ["opened", "synchronize"]:
             return {"status": "ignored", "reason": "not a PR event"}
-
         if "pull_request" not in payload or "repository" not in payload:
             return {"status": "ignored", "reason": "missing PR or repo"}
-
         pr = payload["pull_request"]
         repo = payload["repository"]["full_name"]
         pr_number = pr.get("number")
         diff_url = pr.get("diff_url")
-
         print(f"Processing PR #{pr_number} in repo {repo}")
-
         # Fetch PR diff safely
         diff = ""
         if diff_url:
@@ -127,15 +106,11 @@ async def webhook(request: Request, x_hub_signature_256: str = Header(None)):
                 print("❌ Error fetching diff:", e)
         else:
             print("⚠️ No diff URL available")
-
         # Run AI review
         review = run_ai_review(diff)
-
         # Post comment to GitHub
         post_comment(repo, pr_number, review)
-
         return {"status": "ok", "pr_number": pr_number}
-
     except Exception as e:
         print("❌ Unexpected error in webhook:", e)
         return {"status": "error", "message": str(e)}
