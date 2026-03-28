@@ -59,7 +59,7 @@ Diff:
 {diff}
 """
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo",#choose your pokemon
             messages=[
                 {"role": "system", "content": "You are a helpful and thorough code reviewer."},
                 {"role": "user", "content": prompt}
